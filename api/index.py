@@ -37,10 +37,31 @@ def load_inventory(filepath):
     wb = openpyxl.load_workbook(filepath, read_only=True)
     ws = wb.active
     inv = {}
-    for row in ws.iter_rows(values_only=True):
-        code = row[1]
-        desc = row[2]
-        qty  = row[3]
+
+    rows = ws.iter_rows(values_only=True)
+    header = next(rows)  # first row = column names
+
+    def find_col(*names):
+        """Find a column index whose header matches any of the given names
+        (case-insensitive, trimmed)."""
+        for i, h in enumerate(header):
+            if h and str(h).strip().lower() in [n.lower() for n in names]:
+                return i
+        return None
+
+    code_col = find_col("Item No.", "Item No", "Item Code")
+    desc_col = find_col("Item Description", "Description")
+    qty_col  = find_col("In Stock", "Stock", "Quantity")
+
+    if code_col is None or desc_col is None or qty_col is None:
+        raise ValueError(
+            f"Could not find required columns in header: {header}"
+        )
+
+    for row in rows:
+        code = row[code_col] if code_col < len(row) else None
+        desc = row[desc_col] if desc_col < len(row) else None
+        qty  = row[qty_col]  if qty_col  < len(row) else None
         if code and str(code).strip():
             inv[str(code).strip()] = {
                 "desc": str(desc).strip() if desc else "",
